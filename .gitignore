@@ -1,0 +1,17 @@
+# 不要把任何用户上传 / 抓包数据提交到 git
+uploads/
+results/
+
+# Node
+node_modules/
+.env
+.env.local
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/
+.idea/
+*.swp

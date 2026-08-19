@@ -1,0 +1,20 @@
+{
+  "name": "temu-image-search",
+  "version": "0.1.0",
+  "description": "Temu 图搜批量寻源 · 上传图片一键找 Temu 同款爆品",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "ws": "^8.18.0",
+    "uuid": "^9.0.1"
+  }
+}

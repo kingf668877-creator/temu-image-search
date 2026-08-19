@@ -1,15 +1,19 @@
 // Temu 图搜批量寻源 前端交互
-// 用法：把图片 / 链接 / 表格加入队列，本地模拟演示；接入真实后端时把 simulate() 换成 fetch()。
+// 接入真实后端：localhost:5443
 
 const $  = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
+const BACKEND = (window.TEMU_BACKEND || 'http://localhost:5443');
+
 const state = {
   tab: 'url',
-  items: [],        // { id, src, type:'file'|'url', name, status:'pending'|'running'|'done'|'fail' }
-  results: [],      // 商品结果
+  items: [],
+  results: [],
   page: 1,
   pageSize: 20,
+  taskId: null,
+  pollTimer: null,
 };
 
 const els = {
@@ -45,7 +49,6 @@ const els = {
   exportCsv: $('#export-csv'),
 };
 
-/* ---------------- tabs ---------------- */
 els.tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
 function switchTab(name) {
   state.tab = name;
@@ -53,7 +56,6 @@ function switchTab(name) {
   els.panes.forEach(p => p.classList.toggle('active', p.dataset.pane === name));
 }
 
-/* ---------------- URL 输入 ---------------- */
 els.importText.addEventListener('click', () => {
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = '.txt,.csv,.list';
@@ -67,9 +69,8 @@ els.importText.addEventListener('click', () => {
 });
 els.clearUrl.addEventListener('click', () => { els.urlTextarea.value = ''; renderPreview(); });
 els.urlTextarea.addEventListener('input', renderPreview);
-els.startUrl.addEventListener('click', () => runSearch());
+els.startUrl.addEventListener('click', () => runSearchUrls());
 
-/* ---------------- 文件上传 ---------------- */
 els.dropzone.addEventListener('click', () => els.fileInput.click());
 els.dropzone.addEventListener('dragover', e => { e.preventDefault(); els.dropzone.classList.add('drag'); });
 els.dropzone.addEventListener('dragleave', () => els.dropzone.classList.remove('drag'));
@@ -79,30 +80,25 @@ els.dropzone.addEventListener('drop', e => {
 });
 els.fileInput.addEventListener('change', e => addFiles(e.target.files));
 els.clearFiles.addEventListener('click', () => { state.items = []; renderPreview(); });
-els.startFiles.addEventListener('click', () => runSearch());
+els.startFiles.addEventListener('click', () => runSearchFiles());
 
 function addFiles(fileList) {
   Array.from(fileList).forEach(f => {
     if (!f.type.startsWith('image/')) return;
     const src = URL.createObjectURL(f);
-    state.items.push({ id: crypto.randomUUID(), src, type: 'file', name: f.name, status: 'pending' });
+    state.items.push({ id: crypto.randomUUID(), src, type: 'file', name: f.name, file: f, status: 'pending' });
   });
   renderPreview();
 }
 
-/* ---------------- 表格上传 ---------------- */
 els.tableDrop.addEventListener('click', () => els.tableInput.click());
 els.tableInput.addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
-  alert('已选择文件：' + f.name + '\n（接入后端时由后端解析 CSV/Excel 中的图片链接列）');
-  els.startTable.disabled = false;
+  alert('已选择文件：' + f.name + '。\n（首版仅支持链接批量 + 图片批量；表格批量后续版本加入。）');
 });
-els.clearTable.addEventListener('click', () => { els.tableInput.value = ''; els.startTable.disabled = true; });
-els.startTable.addEventListener('click', () => runSearch());
+els.clearTable.addEventListener('click', () => { els.tableInput.value = ''; });
 
-/* ---------------- preview 渲染 ---------------- */
 function renderPreview() {
-  // URL 模式：从 textarea 解析
   if (state.tab === 'url') {
     const lines = els.urlTextarea.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     state.items = lines.map(url => ({ id: crypto.randomUUID(), src: url, type: 'url', name: url, status: 'pending' }));
@@ -121,7 +117,6 @@ function renderPreview() {
     `;
     els.previewGrid.appendChild(node);
   });
-  // 启动按钮可用性
   els.startUrl.disabled = state.items.length === 0;
   els.startFiles.disabled = state.items.length === 0;
 }
@@ -134,40 +129,92 @@ els.previewClear.addEventListener('click', () => {
   renderPreview();
 });
 
-/* ---------------- 模拟搜索 ---------------- */
-function runSearch() {
+async function runSearchUrls() {
   if (state.items.length === 0) return;
-  // 把队列渲染出来，逐个更新状态
+  const urls = state.items.map(it => it.src);
+  const CHUNK = 100;
   els.results.hidden = false;
   state.results = [];
-  state.items.forEach((it, idx) => {
-    it.status = 'running';
-    setTimeout(() => {
-      // 模拟命中：返回 1 张商品（演示用）
-      const mock = mockResult(idx);
-      state.results.push({ source: it.src, ...mock });
-      it.status = 'done';
-      renderResults();
+  state.taskId = null;
+  try {
+    for (let i = 0; i < urls.length; i += CHUNK) {
+      const slice = urls.slice(i, i + CHUNK);
+      const isLast = (i + CHUNK) >= urls.length;
+      const resp = await fetch(BACKEND + '/api/upload_urls', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          urls: slice,
+          task_id: state.taskId,
+          is_last_batch: isLast,
+          expected_total: urls.length,
+        }),
+      });
+      const data = await resp.json();
+      if (!data.ok) {
+        alert('提交失败: ' + (data.message || data.code));
+        return;
+      }
+      state.taskId = data.task_id;
+      state.items.forEach(it => it.status = 'running');
       renderPreview();
-    }, 350 + idx * 250);
-  });
-  renderPreview();
+    }
+    pollStatus();
+  } catch (e) {
+    alert('提交失败: ' + (e.message || e));
+  }
 }
 
-function mockResult(i) {
-  return {
-    goods_id: '601099596' + String(100000 + i).padStart(6, '0'),
-    title: ['6 Sections Rotating Makeup Organizer Dollhouse-Style...', 'Premium Stainless Steel...', 'Soft Plush Cartoon Duck...'][i % 3],
-    thumb_url: 'https://img.kwcdn.com/product/fancy/ed251e88-d847-4fd9-bca7-8cd7201052b9.jpg',
-    full_url: 'https://www.temu.com/goods.html?goods_id=601099596' + String(100000 + i).padStart(6, '0'),
-    price: '$' + (5 + (i % 5) * 3.7).toFixed(2),
-    rating: (4.3 + (i % 5) * 0.1).toFixed(1),
-    reviews: 50 + i * 23,
-    sold: 100 + i * 41,
-  };
+async function runSearchFiles() {
+  if (state.items.length === 0) return;
+  els.results.hidden = false;
+  state.results = [];
+  state.taskId = crypto.randomUUID();
+  const fd = new FormData();
+  state.items.forEach(it => { if (it.file) fd.append('images', it.file); });
+  try {
+    state.items.forEach(it => it.status = 'running');
+    renderPreview();
+    const resp = await fetch(BACKEND + '/api/upload/' + state.taskId, {
+      method: 'POST', body: fd,
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      alert('提交失败: ' + (data.message || data.code));
+      return;
+    }
+    pollStatus();
+  } catch (e) {
+    alert('提交失败: ' + (e.message || e));
+  }
 }
 
-/* ---------------- 结果渲染 ---------------- */
+function pollStatus() {
+  if (state.pollTimer) clearInterval(state.pollTimer);
+  state.pollTimer = setInterval(async () => {
+    if (!state.taskId) return;
+    try {
+      const resp = await fetch(BACKEND + '/api/status/' + state.taskId);
+      const data = await resp.json();
+      if (!data.ok) return;
+      const t = data.task;
+      if (t.progress && t.progress.total) {
+        els.previewCount.textContent = `${t.progress.done}/${t.progress.total}`;
+      }
+      if (t.status === 'done' || t.status === 'failed') {
+        clearInterval(state.pollTimer);
+        state.pollTimer = null;
+        state.results = (t.results || []).slice();
+        renderResults();
+        state.items.forEach(it => it.status = t.status === 'done' ? 'done' : 'fail');
+        renderPreview();
+      }
+    } catch (e) {
+      console.error('poll error', e);
+    }
+  }, 1500);
+}
+
 function renderResults() {
   const total = state.results.length;
   els.resultsCount.textContent = total ? `共 ${total} 条` : '';
@@ -177,38 +224,39 @@ function renderResults() {
   els.pageCurrent.textContent = state.page;
   els.pageTotal.textContent = totalPages;
   const slice = state.results.slice((state.page - 1) * pageSize, state.page * pageSize);
-  els.resultsGrid.innerHTML = slice.map(r => `
+  els.resultsGrid.innerHTML = slice.map(r => {
+    const unknown = (label) => '<span style="color:#f3c69d">'+label+'</span>';
+    const meta = [];
+    meta.push(r.score != null ? `<span class="rating">★ ${r.score}</span>` : unknown('★ 待定'));
+    meta.push(r.review_count != null ? `<span>${r.review_count} 条评价</span>` : unknown('评分数 待定'));
+    meta.push(r.sales != null ? `<span>${r.sales}+ 已售</span>` : unknown('销量 待定'));
+    return `
     <article class="result-card">
-      <div class="result-thumb" style="background-image:url('${escapeAttr(r.thumb_url)}')">
+      <div class="result-thumb" style="background-image:url('${escapeAttr(r.thumb_url || '')}')">
         <span class="source-tag">源图 → 同款</span>
       </div>
       <div class="result-body">
-        <h4 class="result-title">${escapeHtml(r.title)}</h4>
+        <h4 class="result-title">${escapeHtml(r.title || '(标题待校准)')}</h4>
         <div class="result-price">
-          <span class="price-main">${escapeHtml(r.price)}</span>
+          <span class="price-main">${r.price ? escapeHtml(r.price) : '<span style="color:#f3c69d">价格 待定</span>'}</span>
           ${r.price_old ? `<span class="price-old">${escapeHtml(r.price_old)}</span>` : ''}
         </div>
-        <div class="result-meta">
-          <span class="rating">★ ${r.rating}</span>
-          <span>${r.reviews} 条评价</span>
-          <span>${r.sold}+ 已售</span>
-        </div>
+        <div class="result-meta">${meta.join('')}</div>
         <div class="result-actions">
-          <a href="${escapeAttr(r.full_url)}" target="_blank" rel="noopener">打开商品</a>
-          <a class="alt" href="javascript:;" data-id="${r.goods_id}">复制 ID</a>
+          <a href="${escapeAttr(r.full_url || '#')}" target="_blank" rel="noopener">打开商品</a>
+          <a class="alt" href="javascript:;" data-id="${r.goods_id || ''}">复制 ID</a>
         </div>
       </div>
     </article>
-  `).join('');
-  // 复制 ID
-  $$('.result-actions a.alt', els.resultsGrid).forEach(a => a.addEventListener('click', e => {
+  `}).join('');
+  $$('.result-actions a.alt', els.resultsGrid).forEach(a => a.addEventListener('click', () => {
+    if (!a.dataset.id) return;
     navigator.clipboard.writeText(a.dataset.id);
     a.textContent = '已复制';
     setTimeout(() => a.textContent = '复制 ID', 1200);
   }));
 }
 
-/* ---------------- pager ---------------- */
 els.pagerBtns.forEach(b => b.addEventListener('click', () => {
   const totalPages = Math.max(1, Math.ceil(state.results.length / state.pageSize));
   if (b.dataset.page === 'first') state.page = 1;
@@ -229,10 +277,9 @@ els.pageSize.addEventListener('change', e => {
   renderResults();
 });
 
-/* ---------------- 导出 ---------------- */
 els.exportJson.addEventListener('click', () => download('temu_results.json', JSON.stringify(state.results, null, 2), 'application/json'));
 els.exportCsv.addEventListener('click', () => {
-  const cols = ['source','goods_id','title','price','rating','reviews','sold','thumb_url','full_url'];
+  const cols = ['source','goods_id','title','thumb_url','price','price_old','sales','score','review_count','category','full_url'];
   const rows = [cols.join(',')];
   for (const r of state.results) rows.push(cols.map(c => csv(r[c])).join(','));
   download('temu_results.csv', rows.join('\n'), 'text/csv');
@@ -249,9 +296,7 @@ function csv(v) {
   return /[",\n]/.test(s) ? `"${s}"` : s;
 }
 
-/* ---------------- helpers ---------------- */
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function escapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function escapeAttr(s) { return escapeHtml(s); }
 
-// init
 renderPreview();
