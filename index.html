@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-cn">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Temu 图搜批量寻源 · 一键找 Temu 同款爆品</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FB7701'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' font-family='Inter,Helvetica,Arial,sans-serif' font-size='36' font-weight='800' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#">
+      <span class="brand-mark">T</span>
+      <span class="brand-text">Temu 图搜批量寻源</span>
+    </a>
+    <nav class="nav-links">
+      <a class="nav-link active" href="#search">批量寻源</a>
+      <a class="nav-link" href="#workflow">工作流</a>
+      <a class="nav-link" href="#faq">常见问题</a>
+    </nav>
+    <div class="nav-cta">
+      <span class="status-pill"><span class="dot"></span>会话在线 · V06</span>
+    </div>
+  </div>
+</header>
+
+<section class="hero" id="search">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="hero-inner">
+    <span class="hero-eyebrow">Temu 视觉搜索引擎 · 批量找爆品</span>
+    <h1 class="hero-title">上传图片，一键搜遍 Temu 同款</h1>
+    <p class="hero-subtitle">通过云端 Temu App 会话复用，自动从图搜接口拿到真实商品数据，附带商品 ID、价格、销量、评分等字段。</p>
+    <ul class="hero-points">
+      <li><span class="check">✔</span>千万级Temu 商品池</li>
+      <li><span class="check">✔</span>实时官网数据</li>
+      <li><span class="check">✔</span>批量多图同时搜</li>
+    </ul>
+  </div>
+</section>
+
+<section class="upload-card">
+  <div class="card-header">
+    <h2>📤 批量上传图片</h2>
+    <p class="card-hint">支持 JPG、PNG、WebP 等格式，单张 ≤ 4MB · 像素 ≥ 60×60</p>
+  </div>
+  <div class="tab-bar" role="tablist">
+    <button class="tab active" data-tab="url" role="tab">🔗 图片链接批量上传</button>
+    <button class="tab" data-tab="file" role="tab">🖼️ 图片批量上传</button>
+    <button class="tab" data-tab="table" role="tab">📋 表格批量上传</button>
+  </div>
+
+  <div class="tab-pane active" data-pane="url">
+    <p class="pane-hint">每行粘贴一个图片 URL 地址，支持 http/https 链接，不限数量</p>
+    <textarea id="url-textarea" placeholder="https://cdn.example.com/img1.jpg&#10;https://cdn.example.com/img2.png"></textarea>
+    <div class="pane-actions">
+      <button class="ghost" id="import-text">📄 从文本文件导入</button>
+      <button class="ghost danger" id="clear-url">清空预览链接</button>
+      <span class="grow"></span>
+      <button class="primary" id="start-url">开始批量寻源</button>
+    </div>
+  </div>
+
+  <div class="tab-pane" data-pane="file">
+    <label class="dropzone" id="dropzone">
+      <input type="file" id="file-input" accept="image/*" multiple hidden>
+      <div class="dropzone-inner">
+        <div class="dropzone-icon">⬆</div>
+        <p class="dropzone-title">点击或拖拽图片到此处</p>
+        <p class="dropzone-hint">JPG / PNG / WebP · ≤ 4MB / 张</p>
+      </div>
+    </label>
+    <div class="pane-actions">
+      <button class="ghost danger" id="clear-files">清空图片</button>
+      <span class="grow"></span>
+      <button class="primary" id="start-files" disabled>开始批量寻源</button>
+    </div>
+  </div>
+
+  <div class="tab-pane" data-pane="table">
+    <p class="pane-hint">上传 CSV / Excel 表格，包含图片链接列即可批量寻源</p>
+    <label class="dropzone" id="table-drop">
+      <input type="file" id="table-input" accept=".csv,.xlsx,.xls" hidden>
+      <div class="dropzone-inner">
+        <div class="dropzone-icon">📋</div>
+        <p class="dropzone-title">点击或拖拽 CSV / Excel 文件</p>
+        <p class="dropzone-hint">需包含图片链接列（image / url / 链接）</p>
+      </div>
+    </label>
+    <div class="pane-actions">
+      <button class="ghost danger" id="clear-table">清空表格</button>
+      <span class="grow"></span>
+      <button class="primary" id="start-table" disabled>开始批量寻源</button>
+    </div>
+  </div>
+</section>
+
+<section class="preview" id="preview" hidden>
+  <div class="preview-head">
+    <h3>📦 已加载 <span id="preview-count">0</span> 张图片 · 预估耗时 <span id="preview-eta">--</span></h3>
+    <button class="ghost danger" id="preview-clear">清空全部</button>
+  </div>
+  <div class="preview-grid" id="preview-grid"></div>
+</section>
+
+<section class="results" id="results" hidden>
+  <div class="results-toolbar">
+    <h3>🔍 寻源结果 <span class="muted" id="results-count"></span></h3>
+    <div class="results-tools">
+      <select id="page-size">
+        <option>10 条/页</option>
+        <option selected>20 条/页</option>
+        <option>50 条/页</option>
+        <option>100 条/页</option>
+      </select>
+      <button class="ghost" id="export-json">导出 JSON</button>
+      <button class="ghost" id="export-csv">导出 CSV</button>
+    </div>
+  </div>
+  <div class="results-grid" id="results-grid"></div>
+  <div class="pager">
+    <button class="page-btn" data-page="first">«</button>
+    <button class="page-btn" data-page="prev">‹</button>
+    <span class="page-info"><span id="page-current">1</span> / <span id="page-total">1</span></span>
+    <button class="page-btn" data-page="next">›</button>
+    <button class="page-btn" data-page="last">»</button>
+    <span class="jump">
+      跳转 <input type="number" id="page-jump" min="1" value="1"> <button class="ghost" id="page-go">Go</button>
+    </span>
+  </div>
+</section>
+
+<section class="workflow" id="workflow">
+  <h2>工作流</h2>
+  <ol class="workflow-list">
+    <li><b>1. 网页批量上传</b> —— 用户在前端提交图片、链接或表格。</li>
+    <li><b>2. 任务进入队列</b> —— 同一会话内串行调度，避免 Temu App 状态互相干扰。</li>
+    <li><b>3. 云端 Temu App 执行</b> —— VMOS 内 Temu Android App 作为会话执行端，触发图搜。</li>
+    <li><b>4. 响应离线解析</b> —— 从原生 TLS 明文 → HTTP/2 重组 → gzip 解压 → 字段抽取。</li>
+    <li><b>5. 结果入库与展示</b> —— 写入 JSON / CSV；前端轮询 / 导出。</li>
+  </ol>
+</section>
+
+<section class="faq" id="faq">
+  <h2>常见问题</h2>
+  <details><summary>是否需要账号？</summary><p>不需要。云端 Temu App 已登录，开机即用。</p></details>
+  <details><summary>单张 / 批量的限制？</summary><p>单张无限制；批量建议 ≤ 200 张，避免云手机内存吃紧。</p></details>
+  <details><summary>图搜接口会变吗？</summary><p>会。每次接口版本调整都可能影响返回字段；系统做了响应结构自适应与字段缺失告警。</p></details>
+  <details><summary>数据会公开吗？</summary><p>不会。所有结果仅保存在本仓库 results/ 目录，不上传第三方服务。</p></details>
+</section>
+
+<footer class="foot">
+  <div>© Temu 图搜批量寻源 · Internal project.</div>
+</footer>
+
+<script src="./js/app.js"></script>
+</body>
+</html>
