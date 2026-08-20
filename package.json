@@ -1,20 +1,25 @@
 {
   "name": "temu-image-search",
-  "version": "0.1.0",
-  "description": "Temu 图搜批量寻源 · 上传图片一键找 Temu 同款爆品",
+  "version": "2.0.0",
   "private": true,
+  "description": "Temu 批量图搜本地工作台",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
-  },
-  "engines": {
-    "node": ">=18"
+    "start:mock": "cross-env EXECUTOR_MODE=mock node server.js",
+    "test": "node --test"
   },
   "dependencies": {
-    "express": "^4.19.2",
     "cors": "^2.8.5",
-    "multer": "^1.4.5-lts.1",
-    "ws": "^8.18.0",
-    "uuid": "^9.0.1"
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "frida": "^17.17.0",
+    "multer": "^2.0.2",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "cross-env": "^10.0.0",
+    "frida-compile": "^19.0.5",
+    "supertest": "^7.1.4"
   }
 }
