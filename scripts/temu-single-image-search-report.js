@@ -67,6 +67,11 @@ function nodeText(node) {
   return `${node.text || ''} ${node['content-desc'] || ''}`.trim();
 }
 
+function detectImageNotClearPrompt(nodes, xml = '') {
+  const text = `${nodes.map(nodeText).join(' ')} ${xml}`;
+  return /use a photo where the product is clearly visible|请使用商品清晰可见的照片|商品.*清晰可见/i.test(text);
+}
+
 function findNode(nodes, predicate) {
   return nodes.find((node) => centerOf(node.bounds) && predicate(node));
 }
@@ -147,6 +152,7 @@ function validatePicker(state) {
 }
 
 function validateResult(state) {
+  const imageNotClearPrompt = detectImageNotClearPrompt(state.nodes, state.xml);
   const imageSearchTitle = state.nodes.some((node) =>
     /^(图像搜索|图片搜索|image search)$/i.test(node.text.trim()));
   const goodsCount = countNodes(state.nodes, (node) =>
@@ -161,6 +167,7 @@ function validateResult(state) {
     /搜索建议|历史搜索|热门搜索|猜你想搜/.test(nodeText(node)));
   const packageVisible = state.xml.includes(PACKAGE);
   const reasons = [];
+  if (imageNotClearPrompt) reasons.push('图片主体不清晰，请更换商品主体完整且清晰的图片');
   if (!packageVisible) reasons.push('选择图片后未返回 Temu');
   if (!imageSearchTitle) reasons.push('未检测到明确的图像搜索页面标题');
   if (goodsCount < 2) reasons.push(`可见商品卡片不足，当前仅 ${goodsCount} 个`);
@@ -169,6 +176,7 @@ function validateResult(state) {
   return {
     valid: reasons.length === 0,
     reason: reasons.join('；') || null,
+    imageNotClearPrompt,
     evidence: {
       package_visible: packageVisible,
       image_search_title: imageSearchTitle,
@@ -245,7 +253,9 @@ async function waitForState(client, name, validator, attempts = 6, delayMs = 150
       return { state: lastState, validation: lastValidation, attempt };
     }
   }
-  throw new Error(`${name}校验失败：${lastValidation?.reason || '页面状态未知'}`);
+  const error = new Error(`${name}校验失败：${lastValidation?.reason || '页面状态未知'}`);
+  if (lastValidation?.imageNotClearPrompt) error.code = 'IMAGE_NOT_CLEAR';
+  throw error;
 }
 
 async function recoverVerifiedHome(client, firstState, maxBacks = 5) {

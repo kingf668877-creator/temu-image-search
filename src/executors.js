@@ -30,8 +30,11 @@ function runNode(script, env, timeoutMs) {
     child.on('close', (code) => {
       clearTimeout(timer);
       if (code !== 0) {
-        const error = new Error((stderr || stdout || `退出码 ${code}`).trim());
-        error.code = 'DEVICE_STEP_FAILED';
+        const message = (stderr || stdout || `退出码 ${code}`).trim();
+        const error = new Error(message);
+        error.code = /IMAGE_NOT_CLEAR|图片主体不清晰|product is clearly visible/i.test(message)
+          ? 'IMAGE_NOT_CLEAR'
+          : 'DEVICE_STEP_FAILED';
         reject(error);
       } else resolve(stdout.trim());
     });
