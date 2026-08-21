@@ -1,23 +1,205 @@
-<!doctype html>
-<html lang="zh-cn">
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Temu 图搜批量寻源 · 一键找 Temu 同款爆品</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FB7701'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' font-family='Arial' font-size='36' font-weight='800' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="./css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temu 图搜批量寻源 · 一键找 Temu 同款爆品</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23fb7701'/%3E%3Ctext x='32' y='42' font-size='28' font-weight='800' font-family='Inter,sans-serif' fill='white' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css?v=temu-1688-ui-20260821">
 </head>
 <body>
-<header class="nav"><div class="nav-inner"><a class="brand" href="#"><span class="brand-mark">T</span><span class="brand-text">Temu 图搜批量寻源</span></a><nav class="nav-links"><a class="nav-link active" href="#search">批量寻源</a><a class="nav-link" href="#workflow">工作流</a><a class="nav-link" href="#faq">常见问题</a></nav><div class="nav-cta"><span class="status-pill" id="service-status"><span class="dot"></span><span>正在检查本地服务</span></span></div></div></header>
-<section class="hero" id="search"><div class="hero-bg" aria-hidden="true"></div><div class="hero-inner"><span class="hero-eyebrow">Temu 视觉搜索引擎 · 批量找爆品</span><h1 class="hero-title">上传图片，一键搜遍 Temu 同款</h1><p class="hero-subtitle">通过云端 Temu App 会话复用，从真实图搜结果模型获取商品 ID、标题、价格、销量、主图和商品链接。</p><ul class="hero-points"><li><span class="check">✔</span>千万级 Temu 商品池</li><li><span class="check">✔</span>真实 App 图搜结果</li><li><span class="check">✔</span>批量任务自动排队</li></ul></div></section>
-<section class="upload-card"><div class="card-header"><h2>📤 批量上传图片</h2><p class="card-hint">支持 JPG、PNG、WebP 等格式，单张 ≤ 4MB · 每批最多 100 张</p></div><div class="tab-bar" role="tablist"><button class="tab active" data-tab="url">🔗 图片链接批量上传</button><button class="tab" data-tab="file">🖼️ 图片批量上传</button><button class="tab" data-tab="table">📋 表格批量上传</button></div>
-<div class="tab-pane active" data-pane="url"><p class="pane-hint">每行粘贴一个公开图片 URL，支持 http/https 链接</p><textarea id="url-textarea" placeholder="https://cdn.example.com/img1.jpg&#10;https://cdn.example.com/img2.png"></textarea><div class="pane-actions"><button class="ghost" id="import-text">📄 从文本文件导入</button><button class="ghost danger" id="clear-url">清空预览链接</button><span class="grow"></span><button class="primary" id="start-url">开始批量寻源</button></div></div>
-<div class="tab-pane" data-pane="file"><label class="dropzone" id="dropzone"><input type="file" id="file-input" accept="image/*" multiple hidden><div class="dropzone-inner"><div class="dropzone-icon">⬆</div><p class="dropzone-title">点击或拖拽图片到此处</p><p class="dropzone-hint">JPG / PNG / WebP · ≤ 4MB / 张</p></div></label><div class="pane-actions"><button class="ghost danger" id="clear-files">清空图片</button><span class="grow"></span><button class="primary" id="start-files" disabled>开始批量寻源</button></div></div>
-<div class="tab-pane" data-pane="table"><p class="pane-hint">表格批量上传将在后续版本加入，当前可从文本文件导入链接。</p><label class="dropzone"><div class="dropzone-inner"><div class="dropzone-icon">📋</div><p class="dropzone-title">CSV / Excel 批量上传</p><p class="dropzone-hint">功能预留</p></div></label></div></section>
-<section class="preview" id="preview" hidden><div class="preview-head"><h3>📦 已加载 <span id="preview-count">0</span> 张图片 · 预估耗时 <span id="preview-eta">--</span></h3><button class="ghost danger" id="preview-clear">清空全部</button></div><div class="preview-grid" id="preview-grid"></div></section>
-<section class="results" id="results" hidden><div class="batch-progress"><div><strong id="batch-progress-text">等待提交</strong><span id="batch-current"></span></div><div class="progress-track"><span id="batch-progress-bar"></span></div></div><div class="result-workbench"><aside class="source-queue" id="source-queue"></aside><main class="product-panel"><div class="results-toolbar"><h3>🔍 寻源结果 <span class="muted" id="results-count"></span></h3><div class="results-tools"><select id="page-size"><option>10 条/页</option><option selected>20 条/页</option><option>50 条/页</option></select><button class="ghost" id="export-json">导出 JSON</button><button class="ghost" id="export-csv">导出 CSV</button></div></div><div class="result-empty" id="result-empty">选择左侧源图查看商品结果</div><div class="results-grid" id="results-grid"></div><div class="pager"><button class="page-btn" data-page="first">«</button><button class="page-btn" data-page="prev">‹</button><span class="page-info"><span id="page-current">1</span> / <span id="page-total">1</span></span><button class="page-btn" data-page="next">›</button><button class="page-btn" data-page="last">»</button></div></main></div></section>
-<section class="workflow" id="workflow"><h2>工作流</h2><ol class="workflow-list"><li><b>1. 网页批量上传</b> —— 提交图片或图片链接。</li><li><b>2. 任务进入队列</b> —— 单台云手机串行执行，单图失败不阻塞后续任务。</li><li><b>3. Temu App 图搜</b> —— 自动选图并严格验证图像搜索结果页。</li><li><b>4. 内存模型导出</b> —— 从 <code>Um.g.d</code> 读取本次图搜商品。</li><li><b>5. 分组展示</b> —— 每张源图独立展示、重试和导出。</li></ol></section>
-<section class="faq" id="faq"><h2>常见问题</h2><details><summary>是否需要启动本地服务？</summary><p>需要。网页通过独立的 15443 端口连接当前电脑上的 VMOS 图搜任务服务。</p></details><details><summary>一个图片需要多久？</summary><p>正常约 35 至 60 秒，设备冷启动或网络较慢时会更久。</p></details><details><summary>为什么任务串行处理？</summary><p>单台云手机同时只能稳定处理一张图片，串行队列可以避免 Temu 页面状态互相干扰。</p></details></section>
-<footer class="foot"><div>© Temu 图搜批量寻源 · Internal project.</div></footer>
-<script src="./js/app.js"></script>
-</body></html>
+  <div class="bg-decoration">
+    <div class="bg-circle bg-circle-1"></div>
+    <div class="bg-circle bg-circle-2"></div>
+    <div class="bg-grid"></div>
+  </div>
+
+  <header class="header">
+    <div class="container header-inner">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 32 32" width="32" height="32"><rect width="32" height="32" rx="8" fill="#fb7701"/><text x="16" y="22" font-size="16" font-weight="800" font-family="Inter,sans-serif" fill="white" text-anchor="middle">T</text></svg>
+        </div>
+        <div class="logo-text"><span class="logo-main">Temu</span><span class="logo-accent">图搜</span></div>
+      </div>
+      <nav class="nav">
+        <a href="#upload-section" class="nav-link active">批量寻源</a>
+        <button id="settingsBtn" class="nav-link settings-btn" aria-label="设置">⚙</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container">
+      <section class="hero">
+        <div class="hero-content">
+          <div class="hero-badge"><span class="badge-dot"></span>视觉搜索引擎 · 批量找 Temu 爆品</div>
+          <h1 class="hero-title">上传图片，<span class="gradient-text">一键找遍 Temu 同款</span></h1>
+          <div class="api-notice" id="apiNotice">
+            <span class="notice-icon">🔧</span>
+            <span class="notice-text">当前默认连接 Temu 图搜后端 <code class="inline-code">https://yidong.dianleida.net:21998</code></span>
+            <button class="notice-close" id="noticeClose">×</button>
+          </div>
+          <div class="hero-stats">
+            <div class="hero-stat"><span class="stat-num">千万级</span><span class="stat-label">Temu 商品池</span></div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat"><span class="stat-num">真实</span><span class="stat-label">App 图搜结果</span></div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat"><span class="stat-num">批量</span><span class="stat-label">自动排队寻源</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="upload-section" id="upload-section">
+        <div class="card upload-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">📤 批量上传图片</h2>
+              <p class="card-subtitle">支持 JPG、PNG、WebP 等格式，单张 ≤ 4MB · 每批最多 100 张</p>
+            </div>
+          </div>
+
+          <div class="upload-tabs" id="uploadTabs">
+            <button class="upload-tab active" data-tab="link">🔗 图片链接批量上传</button>
+            <button class="upload-tab" data-tab="batch">🖼️ 图片批量上传</button>
+            <button class="upload-tab" data-tab="table">📋 表格批量上传</button>
+          </div>
+
+          <div class="upload-panel active" id="panel-link">
+            <p class="panel-hint">每行粘贴一个图片 URL 地址，支持 http/https 链接，最多 100 条</p>
+            <textarea id="urlTextarea" rows="8" placeholder="https://example.com/img1.jpg&#10;https://example.com/img2.png&#10;https://example.com/img3.webp"></textarea>
+            <div class="link-actions">
+              <label class="btn btn-ghost btn-sm">📄 从文本文件导入<input type="file" id="urlFileInput" accept=".txt,.csv" hidden></label>
+              <button class="btn btn-ghost btn-sm" id="clearUrlBtn">清空</button>
+              <button class="btn btn-outline btn-sm" id="previewUrlBtn">预览链接</button>
+            </div>
+            <div class="url-preview" id="urlPreview" hidden>
+              <div class="file-list-header"><span class="file-list-title">链接预览</span><span class="file-list-count" id="urlCount">0 条</span></div>
+              <div class="file-grid file-grid-scrollable" id="urlGrid"></div>
+            </div>
+          </div>
+
+          <div class="upload-panel" id="panel-batch">
+            <div class="drop-zone" id="dropZone">
+              <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><path d="M32 8 L32 40 M20 28 L32 40 L44 28" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 48 L12 54 L52 54 L52 48" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <p class="drop-zone-title">拖拽图片到此处，或 <span class="drop-zone-link">点击选择文件</span></p>
+              <p class="drop-zone-sub">支持批量选择多张图片同时上传，最多 100 张</p>
+              <input type="file" id="fileInput" multiple accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+            </div>
+            <div class="file-list" id="fileList" hidden>
+              <div class="file-list-header"><span class="file-list-title">已上传图片</span><span class="file-list-count" id="fileCount">0 张</span></div>
+              <div class="file-grid file-grid-scrollable" id="fileGrid"></div>
+              <div class="file-list-more" id="fileListMore" hidden><button class="btn btn-ghost btn-sm" id="loadMoreFilesBtn">加载更多（已显示 <span id="fileShown">0</span> / <span id="fileTotal">0</span>）</button></div>
+            </div>
+          </div>
+
+          <div class="upload-panel" id="panel-table">
+            <p class="panel-hint">上传 Excel (.xlsx/.xls) 或 CSV 文件，自动识别表格中的图片链接</p>
+            <div class="drop-zone" id="tableDropZone">
+              <svg viewBox="0 0 64 64" width="48" height="48" aria-hidden="true"><path d="M16 8 L40 8 L52 20 L52 56 L16 56 Z" stroke="currentColor" stroke-width="3" fill="none" stroke-linejoin="round"/><path d="M40 8 L40 20 L52 20" stroke="currentColor" stroke-width="3" fill="none" stroke-linejoin="round"/><path d="M24 32 L44 32 M24 40 L44 40 M24 48 L36 48" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+              <p class="drop-zone-title">拖拽表格文件到此处，或 <span class="drop-zone-link">点击选择文件</span></p>
+              <p class="drop-zone-sub">支持 .xlsx / .xls / .csv 格式</p>
+              <input type="file" id="tableFileInput" accept=".xlsx,.xls,.csv" hidden>
+            </div>
+            <div class="table-file-info" id="tableFileInfo" hidden>
+              <div class="file-list-header"><span class="file-list-title" id="tableFileName">文件名</span><span class="file-list-count" id="tableUrlCount">0 条链接</span><button class="btn btn-outline btn-sm" id="previewTableBtn" style="margin-left:8px">预览链接</button><button class="btn btn-danger btn-sm" id="clearTableBtn" style="margin-left:auto">🗑 移除文件</button></div>
+              <textarea id="tableUrlTextarea" rows="6" placeholder="识别到的图片链接将显示在这里..." style="margin-top:8px;width:100%;border:1px solid #e0e0e6;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;resize:vertical" readonly></textarea>
+              <p class="panel-hint" style="margin-top:6px;font-size:12px;color:#a0a0b0">可手动编辑上方文本框中的链接，编辑后点击刷新按钮更新</p>
+              <button class="btn btn-outline btn-sm" id="refreshTableUrlsBtn" style="margin-top:6px">🔄 刷新链接列表</button>
+              <div class="url-preview" id="tablePreview" hidden style="margin-top:12px"><div class="file-list-header"><span class="file-list-title">链接预览</span></div><div class="file-grid file-grid-scrollable" id="tableGrid"></div></div>
+            </div>
+          </div>
+
+          <div class="upload-actions">
+            <button class="btn btn-ghost" id="clearBtn" hidden>🗑 清空图片</button>
+            <button class="btn btn-primary" id="searchBtn" disabled>🔍 开始批量寻源</button>
+          </div>
+          <div class="upload-timing" id="uploadTiming" hidden>⏱️ 接口耗时：<span id="timingVal">0</span> 秒</div>
+        </div>
+      </section>
+
+      <section class="history-section" id="history-section">
+        <div class="card history-card">
+          <div class="card-header"><h2 class="card-title">任务记录</h2><button class="btn btn-ghost btn-sm" id="refreshHistoryBtn">刷新</button></div>
+          <div class="history-list" id="historyList"><span class="muted">暂无任务记录</span></div>
+        </div>
+      </section>
+
+      <section class="progress-section" id="progress-section" hidden>
+        <div class="card progress-card">
+          <div class="card-header">
+            <h2 class="card-title">⏳ 搜索进度</h2>
+            <div class="progress-header-right"><span class="progress-status" id="progressStatus">准备中...</span><button class="btn btn-danger btn-sm" id="cancelBtn" hidden>⏹ 停止任务</button></div>
+          </div>
+          <div class="progress-bar-wrap"><div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div><div class="progress-text"><span id="progressCurrent">0</span> / <span id="progressTotal">0</span> · <span id="progressPercent">0%</span></div></div>
+          <div class="stage-progress-grid">
+            <div class="stage-progress-item"><div class="stage-progress-head"><span>提交图片</span><span id="downloadProgressText">0 / 0 · 0%</span></div><div class="progress-bar stage-progress-bar"><div class="progress-fill download-progress-fill" id="downloadProgressFill"></div></div></div>
+            <div class="stage-progress-item"><div class="stage-progress-head"><span>图搜图片</span><span id="searchProgressText">0 / 0 · 0%</span></div><div class="progress-bar stage-progress-bar"><div class="progress-fill search-progress-fill" id="searchProgressFill"></div></div></div>
+          </div>
+          <div class="progress-detail">
+            <div class="progress-detail-item"><span class="detail-label">搜索进度</span><span class="detail-val" id="currentImage">-</span></div>
+            <div class="progress-detail-item"><span class="detail-label">已找到商品</span><span class="detail-val highlight" id="foundProducts">0</span></div>
+            <div class="progress-detail-item"><span class="detail-label">已用时间</span><span class="detail-val" id="elapsedTime">00:00</span></div>
+            <div class="progress-detail-item"><span class="detail-label">预计剩余</span><span class="detail-val" id="estimatedTime">-</span></div>
+          </div>
+          <div class="image-status-section" id="imageStatusSection" hidden><div class="image-status-header"><span>图片处理状态</span><span id="imageStatusSummary"></span></div><div class="image-status-list" id="imageStatusList"></div></div>
+          <div class="progress-tip">💡 刷新页面、关闭 tab、关闭浏览器或停止任务时，已跑商品结果会自动从服务端清理。</div>
+        </div>
+      </section>
+
+      <section class="result-section" id="result-section" hidden>
+        <div class="result-header">
+          <div class="result-title-wrap"><h2 class="result-title">📊 搜索结果</h2><p class="result-subtitle" id="resultSubtitle">共搜索 0 张图片，找到 0 个商品</p></div>
+          <div class="result-actions"><button class="btn btn-ghost" id="exportJsonBtn">导出 JSON</button><button class="btn btn-outline" id="exportCsvBtn">导出 CSV</button><button class="btn btn-outline" id="newSearchBtn">新建搜索</button></div>
+        </div>
+        <div class="stats-row" id="statsRow"></div>
+        <div class="result-list" id="resultList"></div>
+        <div class="pagination-wrap" id="paginationWrap" hidden>
+          <div class="pagination-info"><span id="paginationInfo">第 1-0 条，共 0 条</span></div>
+          <div class="pagination-controls"><button class="page-btn" id="pageFirst" aria-label="首页">«</button><button class="page-btn" id="pagePrev" aria-label="上一页">‹</button><span class="page-current"><span id="pageCurrentNum">1</span> / <span id="pageTotalNum">1</span></span><button class="page-btn" id="pageNext" aria-label="下一页">›</button><button class="page-btn" id="pageLast" aria-label="末页">»</button><span class="page-jump">跳转 <input type="number" id="pageJumpInput" min="1"> <button class="btn btn-sm btn-ghost" id="pageJumpBtn">Go</button></span><select class="page-size-select" id="pageSizeSelect"><option value="10">10 条/页</option><option value="20" selected>20 条/页</option><option value="50">50 条/页</option><option value="100">100 条/页</option></select></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer"><div class="container"><div class="footer-brand"><div class="logo"><div class="logo-icon"><svg viewBox="0 0 32 32" width="28" height="28"><rect width="32" height="32" rx="8" fill="#fb7701"/><text x="16" y="22" font-size="16" font-weight="800" font-family="Inter,sans-serif" fill="white" text-anchor="middle">T</text></svg></div><div class="logo-text"><span class="logo-main">Temu</span><span class="logo-accent">图搜</span></div></div></div><div class="footer-bottom"></div></div></footer>
+
+  <div class="settings-modal" id="settingsModal" hidden>
+    <div class="settings-overlay" id="settingsOverlay"></div>
+    <div class="settings-panel">
+      <div class="settings-header"><h3>后端设置</h3><button class="settings-close" id="settingsClose">×</button></div>
+      <div class="settings-body">
+        <div class="form-group"><label>后端 API 地址</label><input type="text" id="apiBaseInput" placeholder="https://yidong.dianleida.net:21998"><p class="form-hint" id="apiHint">默认线上后端：https://yidong.dianleida.net:21998</p></div>
+        <div class="form-group"><label>连接状态</label><div class="connection-status" id="connectionStatus"><span class="status-dot"></span><span class="status-text">未检测</span></div></div>
+      </div>
+      <div class="settings-footer"><button class="btn btn-ghost" id="settingsCancel">取消</button><button class="btn btn-primary" id="settingsSave">保存设置</button></div>
+    </div>
+  </div>
+
+  <div class="result-modal" id="resultModal" hidden>
+    <div class="result-modal-overlay" id="resultModalOverlay"></div>
+    <div class="result-modal-panel">
+      <div class="result-modal-header"><div class="result-modal-title-wrap"><img class="result-modal-thumb" id="resultModalThumb" alt=""><div><h3 id="resultModalTitle">商品</h3><p class="result-modal-sub" id="resultModalSub"></p></div></div><button class="result-modal-close" id="resultModalClose">×</button></div>
+      <div class="result-modal-body"><div class="product-grid" id="resultModalGrid"></div></div>
+    </div>
+  </div>
+
+  <template id="productCardTemplate">
+    <a class="product-card" href="#" target="_blank" rel="noopener">
+      <div class="product-img"><img loading="lazy" alt=""><span class="product-ad-badge" style="display:none">广告</span></div>
+      <div class="product-info"><div class="product-title"></div><div class="product-price"></div><div class="product-meta"></div><div class="product-sales-row" style="display:none"></div><div class="product-shop-block" style="display:none"><span class="product-shop-link"></span><div class="product-shop-meta"></div></div></div>
+      <div class="similarity-bar"><div class="similarity-fill"></div></div>
+    </a>
+  </template>
+
+  <template id="miniCardTemplate">
+    <a class="mini-card" href="#" target="_blank" rel="noopener">
+      <div class="mini-img"><img loading="lazy" alt=""><span class="mini-rank"></span><span class="mini-ad-badge" style="display:none">AD</span></div>
+      <div class="mini-info"><div class="mini-title"></div><div class="mini-price-row"><span class="mini-price"></span><span class="mini-moq"></span></div><div class="mini-sales-row" style="display:none"></div><div class="mini-meta"></div><div class="mini-shop-block" style="display:none"><span class="mini-shop-link"></span><div class="mini-shop-meta"></div></div></div>
+    </a>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="js/app.js?v=temu-1688-ui-20260821"></script>
+</body>
+</html>

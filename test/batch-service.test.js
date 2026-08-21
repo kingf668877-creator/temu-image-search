@@ -126,6 +126,61 @@ test('服务启动时恢复历史批次', () => {
   assert.equal(restored.items[0].products[0].goodsId, '123');
 });
 
+test('停止批次会删除已跑商品结果和持久化文件', async () => {
+  const runtimeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'temu-stop-'));
+  const service = new BatchService({
+    executor: async () => [{ goodsId: 'should-clean' }],
+    runtimeDir,
+  });
+  const created = service.create([{ name: 'stop.jpg', localPath: 'stop.jpg' }]);
+  await waitFinished(service, created.id);
+
+  const stopped = service.stop(created.id);
+
+  assert.equal(stopped.status, 'deleted');
+  assert.equal(service.get(created.id), null);
+  assert.equal(fs.existsSync(path.join(runtimeDir, `${created.id}.json`)), false);
+});
+
+test('全量清理会删除所有批次文件', async () => {
+  const runtimeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'temu-clear-'));
+  const service = new BatchService({ executor: async (item) => [{ goodsId: item.name }], runtimeDir });
+  const first = service.create([{ name: 'one.jpg', localPath: 'one.jpg' }]);
+  const second = service.create([{ name: 'two.jpg', localPath: 'two.jpg' }]);
+  await waitFinished(service, first.id);
+  await waitFinished(service, second.id);
+
+  const deleted = service.clearAll();
+
+  assert.equal(deleted, 2);
+  assert.equal(service.get(first.id), null);
+  assert.equal(service.get(second.id), null);
+});
+
+test('运行中删除批次后不会被后台执行结果重新写回', async () => {
+  const runtimeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'temu-delete-running-'));
+  let releaseExecutor;
+  const executorDone = new Promise((resolve) => { releaseExecutor = resolve; });
+  const service = new BatchService({
+    executor: async (item, updateStage) => {
+      updateStage({ text: '执行中' });
+      await executorDone;
+      return [{ goodsId: 'late-product' }];
+    },
+    runtimeDir,
+  });
+  const created = service.create([{ name: 'running.jpg', localPath: 'running.jpg' }]);
+  await wait(20);
+
+  const deleted = service.delete(created.id);
+  releaseExecutor();
+  await wait(30);
+
+  assert.equal(deleted, true);
+  assert.equal(service.get(created.id), null);
+  assert.equal(fs.existsSync(path.join(runtimeDir, `${created.id}.json`)), false);
+});
+
 test('服务重启将运行中任务恢复为可重试失败项', async () => {
   const runtimeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'temu-interrupted-'));
   const batch = {

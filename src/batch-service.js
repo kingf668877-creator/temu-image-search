@@ -8,8 +8,10 @@ class BatchService {
     this.runtimeDir = options.runtimeDir || path.resolve(__dirname, '..', 'runtime');
     this.executor = options.executor || createExecutor(options.mode);
     this.batches = new Map();
+    this.deletedBatchIds = new Set();
     this.queue = [];
     this.running = false;
+    this.deleteCompletedBatches = Boolean(options.deleteCompletedBatches);
     fs.mkdirSync(this.runtimeDir, { recursive: true });
     this.restore();
   }
@@ -54,6 +56,7 @@ class BatchService {
         error: item.error || null,
       })),
     };
+    this.deletedBatchIds.delete(batch.id);
     this.batches.set(batch.id, batch);
     const queuedItems = batch.items.filter((item) => item.status === 'queued');
     queuedItems.forEach((item) => this.queue.push({ batchId: batch.id, itemId: item.id }));
@@ -76,13 +79,59 @@ class BatchService {
     const item = batch && batch.items.find((entry) => entry.id === itemId);
     if (!item) return null;
     if (item.status !== 'failed') throw Object.assign(new Error('只能重试失败项'), { code: 'ITEM_NOT_FAILED' });
-    Object.assign(item, { status: 'queued', error: null, finishedAt: null, durationMs: null });
+    Object.assign(item, { status: 'queued', error: null, finishedAt: null, durationMs: null, products: [] });
     batch.status = 'queued';
     batch.finishedAt = null;
     this.queue.push({ batchId, itemId });
     this.persist(batch);
     this.drain();
     return this.publicBatch(batch, true);
+  }
+
+  stop(batchId, options = {}) {
+    const batch = this.batches.get(batchId);
+    if (!batch) return null;
+    this.queue = this.queue.filter((job) => job.batchId !== batchId);
+    const now = new Date().toISOString();
+    batch.items.forEach((item) => {
+      item.products = [];
+      if (item.status === 'queued') {
+        item.status = 'failed';
+        item.error = { code: 'TASK_STOPPED', message: '任务已停止，已清理该图片结果' };
+        item.finishedAt = now;
+      } else if (item.status === 'running') {
+        item.error = { code: 'TASK_STOPPING', message: '任务正在停止，已清理已跑商品结果' };
+      }
+    });
+    batch.status = 'stopped';
+    batch.finishedAt = now;
+    if (options.delete !== false) {
+      this.delete(batchId);
+      return { id: batchId, status: 'deleted' };
+    }
+    this.persist(batch);
+    return this.publicBatch(batch, true);
+  }
+
+  delete(batchId) {
+    const batch = this.batches.get(batchId);
+    if (!batch) return false;
+    this.queue = this.queue.filter((job) => job.batchId !== batchId);
+    batch.items.forEach((item) => {
+      item.products = [];
+    });
+    this.deletedBatchIds.add(batchId);
+    this.batches.delete(batchId);
+    const file = path.join(this.runtimeDir, `${batchId}.json`);
+    try { fs.rmSync(file, { force: true }); } catch {}
+    return true;
+  }
+
+  clearAll() {
+    const ids = Array.from(this.batches.keys());
+    ids.forEach((id) => this.delete(id));
+    this.queue = [];
+    return ids.length;
   }
 
   summary(batch) {
@@ -112,6 +161,7 @@ class BatchService {
     this.running = true;
     while (this.queue.length) {
       const job = this.queue.shift();
+      if (this.deletedBatchIds.has(job.batchId)) continue;
       const batch = this.batches.get(job.batchId);
       const item = batch && batch.items.find((entry) => entry.id === job.itemId);
       if (!item || item.status !== 'queued') continue;
@@ -123,14 +173,18 @@ class BatchService {
       this.persist(batch);
       try {
         item.products = await this.executor(item, (stage) => {
+          if (this.deletedBatchIds.has(job.batchId)) return;
           item.stage = stage;
           this.persist(batch);
         });
+        if (this.deletedBatchIds.has(job.batchId)) continue;
         item.status = 'succeeded';
       } catch (error) {
+        if (this.deletedBatchIds.has(job.batchId)) continue;
         item.status = 'failed';
         item.error = { code: error.code || 'SEARCH_FAILED', message: String(error.message || error) };
       }
+      if (this.deletedBatchIds.has(job.batchId)) continue;
       item.finishedAt = new Date().toISOString();
       item.durationMs = Date.now() - started;
       const counts = this.summary(batch);
@@ -144,6 +198,7 @@ class BatchService {
   }
 
   persist(batch) {
+    if (this.deletedBatchIds.has(batch.id)) return;
     fs.writeFileSync(path.join(this.runtimeDir, `${batch.id}.json`), JSON.stringify(batch, null, 2));
   }
 }

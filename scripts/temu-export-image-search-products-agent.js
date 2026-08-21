@@ -1,5 +1,6 @@
-import Java from 'frida-java-bridge';
-
+// Java is provided by the Frida runtime at execution time.
+const Java = globalThis.Java;
+if (!Java) throw new Error('Java runtime is not available');
 globalThis.Java = Java;
 
 function fieldValue(object, ownerName, fieldName) {

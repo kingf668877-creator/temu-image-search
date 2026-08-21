@@ -83,7 +83,7 @@ function createApp(options = {}) {
     try {
       const files = req.files || [];
       if (!files.length) return res.status(400).json({ ok: false, code: 'NO_IMAGES', message: '没有有效图片' });
-      const batch = batches.create(files.map((file) => ({ name: file.originalname, source: file.originalname, previewUrl: `/runtime/uploads/${path.basename(file.path)}`, localPath: file.path })));
+      const batch = batches.create(files.map((file) => ({ name: file.originalname, source: file.originalname, localPath: file.path })));
       res.status(202).json({ ok: true, batch });
     } catch (error) { next(error); }
   });
@@ -122,6 +122,27 @@ function createApp(options = {}) {
       if (!batch) return res.status(404).json({ ok: false, code: 'ITEM_NOT_FOUND', message: '任务项不存在' });
       res.status(202).json({ ok: true, batch });
     } catch (error) { next(error); }
+  });
+
+  app.post('/api/batches/:batchId/stop', (req, res) => {
+    const stopped = batches.stop(req.params.batchId, { delete: true });
+    if (!stopped) return res.status(404).json({ ok: false, code: 'BATCH_NOT_FOUND', message: '批次不存在' });
+    res.json({ ok: true, batch: stopped });
+  });
+
+  app.delete('/api/batches/:batchId', (req, res) => {
+    batches.delete(req.params.batchId);
+    res.json({ ok: true, deleted: true });
+  });
+
+  app.post('/api/batches/:batchId/cleanup', (req, res) => {
+    batches.delete(req.params.batchId);
+    res.json({ ok: true, deleted: true });
+  });
+
+  app.post('/api/batches/clear', (req, res) => {
+    const deleted = batches.clearAll();
+    res.json({ ok: true, deleted });
   });
 
   app.get('/api/batches/:batchId/export', (req, res) => {
