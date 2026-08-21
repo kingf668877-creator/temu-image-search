@@ -25,4 +25,4 @@ Mock 模式使用 `npm run start:mock`。服务只绑定本机地址，默认端
 
 ## GitHub Pages
 
-线上 HTTPS 页面直接请求本机 HTTP 服务可能被浏览器混合内容策略阻止。正式通过域名访问时，应把本地 `15443` 服务映射为 HTTPS 地址，再通过 `window.TEMU_BACKEND` 指向该地址。
+线上入口：`https://yidong.dianleida.net:21998/`。健康检查：`https://yidong.dianleida.net:21998/api/health`。前端默认请求该 HTTPS 后端，也可通过 `window.TEMU_BACKEND` 覆盖；运维反向代理应将公网端口转发到服务的 `15443` 端口。
