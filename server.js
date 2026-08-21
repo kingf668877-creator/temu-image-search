@@ -83,7 +83,7 @@ function createApp(options = {}) {
     try {
       const files = req.files || [];
       if (!files.length) return res.status(400).json({ ok: false, code: 'NO_IMAGES', message: '没有有效图片' });
-      const batch = batches.create(files.map((file) => ({ name: file.originalname, source: file.originalname, localPath: file.path })));
+      const batch = batches.create(files.map((file) => ({ name: file.originalname, source: file.originalname, previewUrl: `/runtime/uploads/${path.basename(file.path)}`, localPath: file.path })));
       res.status(202).json({ ok: true, batch });
     } catch (error) { next(error); }
   });
