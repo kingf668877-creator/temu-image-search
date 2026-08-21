@@ -9,7 +9,7 @@
 3. 确认 ADB 转发 `127.0.0.1:61750` 和 Frida 转发 `127.0.0.1:27042` 可用
 4. 确认 Temu 主进程与 `/data/local/tmp/fsrv` 正在运行
 5. 启动真实服务：`npm start`
-6. 本机调试打开 `http://127.0.0.1:15443/`；线上打开 `https://yidong.dianleida.net:21998/`
+6. 本地和线上统一打开 `https://yidong.dianleida.net:21998/`
 
 Mock 模式使用 `npm run start:mock`。服务默认监听 `0.0.0.0:15443`，可通过 `HOST` 和 `PORT` 环境变量覆盖；端口被占用时会退出，不会终止其他服务。
 
