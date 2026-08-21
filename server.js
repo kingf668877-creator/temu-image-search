@@ -10,7 +10,7 @@ const net = require('net');
 const { randomUUID } = require('crypto');
 const { BatchService } = require('./src/batch-service');
 
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 const PORT = Number(process.env.PORT || 15443);
 const ROOT = __dirname;
 const UPLOADS = path.join(ROOT, 'runtime', 'uploads');
