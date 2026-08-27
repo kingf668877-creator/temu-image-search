@@ -50,6 +50,9 @@ async function compileAgent(agentPath) {
         }
       });
       await script.load();
+      if (script.exports && typeof script.exports.run_export === 'function') {
+        await script.exports.run_export();
+      }
     });
     fs.writeFileSync(output, JSON.stringify({ exportedAt: new Date().toISOString(), meta, products }, null, 2));
     console.log(JSON.stringify({ output, count: products.length }));
