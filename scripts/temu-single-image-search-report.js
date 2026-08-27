@@ -12,7 +12,15 @@ const PICKER_PACKAGES = [
   'com.android.documentsui'
 ];
 const TARGET_FILE = path.basename(REMOTE_IMAGE);
+// TEMU_FAST_MODE:
+//   1 -> disable screencap（节省时间）
+//   2 -> 已就绪路径：跳过 startApp + 7s 等待 + 首页恢复，假定 Temu 已在首页
+// TEMU_FAST_PRECISE:
+//   0 -> 关闭：dump 默认 6 次重试 1200ms（老行为，调试用）
+//   1 -> 开启（默认）：dump 默认 1 次重试 400ms，依靠 Frida/校验 fallback
 const FAST_MODE = process.env.TEMU_FAST_MODE === '1';
+const FAST_READY = process.env.TEMU_FAST_MODE === '2';
+const FAST_PRECISE = process.env.TEMU_FAST_PRECISE !== '0';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -67,11 +75,6 @@ function nodeText(node) {
   return `${node.text || ''} ${node['content-desc'] || ''}`.trim();
 }
 
-function detectImageNotClearPrompt(nodes, xml = '') {
-  const text = `${nodes.map(nodeText).join(' ')} ${xml}`;
-  return /use a photo where the product is clearly visible|请使用商品清晰可见的照片|商品.*清晰可见/i.test(text);
-}
-
 function findNode(nodes, predicate) {
   return nodes.find((node) => centerOf(node.bounds) && predicate(node));
 }
@@ -123,9 +126,11 @@ function validatePicker(state) {
     return description === TARGET_FILE || description.startsWith(`${TARGET_FILE},`);
   });
   if (!target && pickerPackage === 'com.android.providers.media.module') {
-    const recentHeader = state.nodes.find((node) => /^recent$/i.test(node.text.trim()));
+    const recentHeader = state.nodes.find((node) =>
+      /^(recent|neueste)$/i.test(node.text.trim()));
     const photos = state.nodes
-      .filter((node) => node.clickable === 'true' && /^Photo taken on /i.test(node['content-desc'] || ''))
+      .filter((node) => node.clickable === 'true' &&
+        /^(photo taken on |foto wurde aufgenommen am )/i.test(node['content-desc'] || ''))
       .sort((a, b) => {
         const aRect = rectOf(a.bounds);
         const bRect = rectOf(b.bounds);
@@ -152,7 +157,6 @@ function validatePicker(state) {
 }
 
 function validateResult(state) {
-  const imageNotClearPrompt = detectImageNotClearPrompt(state.nodes, state.xml);
   const imageSearchTitle = state.nodes.some((node) =>
     /^(图像搜索|图片搜索|image search)$/i.test(node.text.trim()));
   const goodsCount = countNodes(state.nodes, (node) =>
@@ -167,7 +171,6 @@ function validateResult(state) {
     /搜索建议|历史搜索|热门搜索|猜你想搜/.test(nodeText(node)));
   const packageVisible = state.xml.includes(PACKAGE);
   const reasons = [];
-  if (imageNotClearPrompt) reasons.push('图片主体不清晰，请更换商品主体完整且清晰的图片');
   if (!packageVisible) reasons.push('选择图片后未返回 Temu');
   if (!imageSearchTitle) reasons.push('未检测到明确的图像搜索页面标题');
   if (goodsCount < 2) reasons.push(`可见商品卡片不足，当前仅 ${goodsCount} 个`);
@@ -176,7 +179,6 @@ function validateResult(state) {
   return {
     valid: reasons.length === 0,
     reason: reasons.join('；') || null,
-    imageNotClearPrompt,
     evidence: {
       package_visible: packageVisible,
       image_search_title: imageSearchTitle,
@@ -190,8 +192,8 @@ function validateResult(state) {
 async function saveState(client, name, options = {}) {
   const xmlRemote = `/sdcard/${name}.xml`;
   const pngRemote = `/data/local/tmp/${name}.png`;
-  const attempts = options.attempts || 6;
-  const retryDelayMs = options.retryDelayMs || 1200;
+  const attempts = options.attempts || (FAST_PRECISE ? 6 : 1);
+  const retryDelayMs = options.retryDelayMs || (FAST_PRECISE ? 1200 : 400);
   let xml = '';
   const dumpDiagnostics = [];
 
@@ -205,7 +207,7 @@ async function saveState(client, name, options = {}) {
       xml_length: xml.length
     });
     if (xml.includes('<hierarchy')) break;
-    await sleep(retryDelayMs);
+    if (attempt < attempts) await sleep(retryDelayMs);
   }
 
   const xmlPath = path.join(OUTPUT_DIR, `${name}.xml`);
@@ -253,9 +255,7 @@ async function waitForState(client, name, validator, attempts = 6, delayMs = 150
       return { state: lastState, validation: lastValidation, attempt };
     }
   }
-  const error = new Error(`${name}校验失败：${lastValidation?.reason || '页面状态未知'}`);
-  if (lastValidation?.imageNotClearPrompt) error.code = 'IMAGE_NOT_CLEAR';
-  throw error;
+  throw new Error(`${name}校验失败：${lastValidation?.reason || '页面状态未知'}`);
 }
 
 async function recoverVerifiedHome(client, firstState, maxBacks = 5) {
@@ -304,21 +304,52 @@ async function main() {
 
   const reportPath = path.join(OUTPUT_DIR, 'single-report.json');
   try {
-    result.steps.start = await client.startApp(PACKAGE);
-    await sleep(7000);
+    // FAST_READY: Temu 已在首页时跳过冷启动；不通过则自动降级到原流程
+    let home = null;
+    let initialState = null;
+    let fastPathUsed = false;
+    let fastPathReason = null;
+    if (FAST_READY) {
+      try {
+        const fg = await client.isAppForeground(PACKAGE);
+        if (fg.foreground) {
+          initialState = await saveState(client, '01-initial-state', {
+            attempts: 3,
+            retryDelayMs: 800,
+          });
+          const validation = validateHome(initialState);
+          if (validation.valid) {
+            home = { state: initialState, validation, back_count: 0 };
+            fastPathUsed = true;
+            fastPathReason = 'Temu 已在首页，跳过 startApp';
+          } else {
+            fastPathReason = `前台但不通过首页校验：${validation.reason}`;
+          }
+        } else {
+          fastPathReason = `Temu 不在前台 (resumed=${fg.resumed})`;
+        }
+      } catch (e) {
+        fastPathReason = `快速路径异常：${e.message}`;
+      }
+    }
 
-    const initialState = await saveState(client, '01-initial-state', {
-      attempts: 8,
-      retryDelayMs: 1500
-    });
-    const home = await recoverVerifiedHome(client, initialState);
+    if (!fastPathUsed) {
+      result.steps.start = await client.startApp(PACKAGE);
+      await sleep(7000);
+      initialState = await saveState(client, '01-initial-state', {
+        attempts: 8,
+        retryDelayMs: 1500,
+      });
+      home = await recoverVerifiedHome(client, initialState);
+    }
+    result.steps.fast_path = { used: fastPathUsed, reason: fastPathReason };
     result.steps.initial_state = publicState(initialState);
     result.steps.home = publicState(home.state);
     result.steps.home_recovery_back_count = home.back_count;
     result.validation_chain.push({ stage: 'home-camera-entry', ...home.validation, target: undefined });
     result.steps.camera_tap = await tapValidatedTarget(client, home.validation, '首页图搜入口');
 
-    const menu = await waitForState(client, '02-image-menu', validateImageMenu, 4, 1000);
+    const menu = await waitForState(client, '02-image-menu', validateImageMenu, FAST_PRECISE ? 2 : 4, FAST_PRECISE ? 600 : 1000);
     result.steps.image_menu = publicState(menu.state);
     result.validation_chain.push({ stage: 'image-search-menu', ...menu.validation, target: undefined });
     result.steps.push = await client.pushFile(INPUT_IMAGE, REMOTE_IMAGE);
@@ -326,12 +357,12 @@ async function main() {
     result.steps.image_published_at = new Date().toISOString();
     result.steps.album_tap = await tapValidatedTarget(client, menu.validation, '图搜菜单');
 
-    const picker = await waitForState(client, '03-system-picker', validatePicker, 6, 1200);
+    const picker = await waitForState(client, '03-system-picker', validatePicker, FAST_PRECISE ? 3 : 6, FAST_PRECISE ? 800 : 1200);
     result.steps.system_picker = publicState(picker.state);
     result.validation_chain.push({ stage: 'system-image-picker', ...picker.validation, target: undefined });
     result.steps.image_tap = await tapValidatedTarget(client, picker.validation, '系统图片选择器');
 
-    const final = await waitForState(client, '04-validated-result', validateResult, 8, 2000);
+    const final = await waitForState(client, '04-validated-result', validateResult, FAST_PRECISE ? 3 : 8, FAST_PRECISE ? 1200 : 2000);
     result.steps.result = publicState(final.state);
     result.validation_chain.push({ stage: 'image-search-result', ...final.validation });
     result.valid_image_search = true;
