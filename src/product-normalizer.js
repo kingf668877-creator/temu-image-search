@@ -25,7 +25,8 @@ function normalizeProduct(raw, position) {
   const tracking = parseTracking(raw);
   const price = raw.price_info || {};
   const tags = raw.tags_info || {};
-  const goodsId = String(raw.goods_id || tracking.g || '');
+  // HTTP 图搜接口在不同版本中会返回多种商品 ID 字段。
+  const goodsId = String(raw.goods_id || raw.goodsId || raw.goods_id_str || raw.goodsIdStr || tracking.g || raw.id || '');
   const sales = asNumber(raw.sales_num);
   const marketPrice = asNumber(price.market_price, 100);
   const goodsTags = [

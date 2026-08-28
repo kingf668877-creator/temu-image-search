@@ -224,7 +224,8 @@ function createApp(options = {}) {
       if (!files.length) return res.status(400).json({ ok: false, code: 'NO_IMAGES', message: '没有有效图片' });
       const batch = batches.create(
         files.map((file) => ({ name: file.originalname, source: file.originalname, previewUrl: null, localPath: file.path })),
-        { autoStart: false }
+        // Temu 图搜任务必须走真实设备流程，不能以历史缓存结果替代本次图片搜索。
+        { autoStart: false, cache: false }
       );
       res.status(202).json({ ok: true, task: batch });
     } catch (error) { next(error); }
@@ -241,7 +242,8 @@ function createApp(options = {}) {
           items.push({ name: url, source: url, previewUrl: url, error: { code: error.code || 'IMAGE_DOWNLOAD_FAILED', message: String(error.message || error) } });
         }
       }
-      const batch = batches.create(items, { autoStart: false });
+      // URL 图搜同样禁止缓存复用，确保本次提交实际进入云手机的选图与搜索流程。
+      const batch = batches.create(items, { autoStart: false, cache: false });
       res.status(202).json({ ok: true, task: batch });
     } catch (error) { next(error); }
   });
